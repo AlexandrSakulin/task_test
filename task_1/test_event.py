@@ -1,19 +1,22 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from task_test.task_1.event import EventFactory, EventProcessor
+from task_1.event import EventFactory, EventProcessor, EventType
 
 
 @pytest.fixture(scope="module")
 def random_event():
-    return EventFactory.generate_event(datetime.utcnow() - timedelta(days=7), datetime.utcnow())
+    return EventFactory.generate_event(datetime.now(timezone.utc) - timedelta(days=7), datetime.now(timezone.utc))
 
 
 @pytest.fixture(scope="function")
 def events_list():
-    return [EventFactory.generate_event(datetime.utcnow() - timedelta(days=7), datetime.utcnow()) for _ in range(10)]
+    return [
+        EventFactory.generate_event(datetime.now(timezone.utc) - timedelta(days=7), datetime.now(timezone.utc))
+        for _ in range(10)
+    ]
 
 
 @pytest.mark.grouping
@@ -27,6 +30,42 @@ def test_grouping(events_list):
         ), "События не упорядочены по времени"
 
 
+@pytest.mark.grouping
+def test_grouping_same_date():
+    """Тестирует группировку событий с одинаковой датой."""
+    events = [
+        EventFactory.generate_event(
+            datetime(2023, 10, 17, 10, 0), datetime(2023, 10, 17, 11, 0), event_type=EventType.PRIVATE.value
+        ),
+        EventFactory.generate_event(
+            datetime(2023, 10, 17, 11, 0), datetime(2023, 10, 17, 12, 0), event_type=EventType.PRIVATE.value
+        ),
+    ]
+
+    processor = EventProcessor("dummy_input.json", "dummy_output.json")
+    grouped = processor.group_events(events)
+    assert len(grouped) == 1, f"Ожидалась 1 группа событий, но было найдено {len(grouped)} групп"
+    assert "2023-10-17" in grouped, f"Отсутствует группировка для даты 2023-10-17. Доступные группы: {grouped.keys()}"
+
+
+@pytest.mark.grouping
+def test_grouping_different_dates():
+    """Тестирование группировки с различными датами"""
+    events = [
+        EventFactory.generate_event(
+            datetime(2023, 10, 16, 10, 0), datetime(2023, 10, 16, 11, 0), event_type=EventType.PRIVATE.value
+        ),
+        EventFactory.generate_event(
+            datetime(2023, 10, 17, 11, 0), datetime(2023, 10, 17, 12, 0), event_type=EventType.MEETING.value
+        ),
+    ]
+    processor = EventProcessor("dummy_input.json", "dummy_output.json")
+    grouped = processor.group_events(events)
+    assert len(grouped) == 2, f"Ожидалось 2 группы дат, но получено {len(grouped)} групп"
+    assert "2023-10-16" in grouped, "Отсутствует группировка для даты 2023-10-16"
+    assert "2023-10-17" in grouped, "Отсутствует группировка для даты 2023-10-17"
+
+
 @pytest.mark.loading
 def test_loading_invalid_event_type():
     """Проверяет, что при попытке загрузить событие с недействительным типом события возникает исключение"""
@@ -34,7 +73,7 @@ def test_loading_invalid_event_type():
         json.dump(
             [
                 {
-                    "datetime_utc": datetime.utcnow().isoformat(),
+                    "datetime_utc": datetime.now(timezone.utc).isoformat(),
                     "event_type": "invalid_type",
                     "name": "Test Event",
                     "attendees": ["Egor"],
@@ -51,7 +90,7 @@ def test_loading_invalid_event_type():
 
 @pytest.mark.output
 def test_output(events_list):
-    """Проверка, что события для каждой даты в группированном списке упорядочены по времени."""
+    """Тестирует сохранение группированных событий в файл и их последующую загрузку."""
     processor = EventProcessor("dummy_input.json", "temp_output.json")
     grouped = processor.group_events(events_list)
     processor.save_grouped_events(grouped)

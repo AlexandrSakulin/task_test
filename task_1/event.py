@@ -4,6 +4,7 @@ import enum
 import json
 import random
 import string
+from collections import defaultdict
 
 
 class EventType(enum.Enum):
@@ -11,6 +12,14 @@ class EventType(enum.Enum):
     MEETING = "meeting"
     CORPORATE = "corporate"
     OTHER = "other"
+
+
+class EventLocation(enum.Enum):
+    ZOOM = "zoom"
+    TELEGRAM = "telegram"
+    OFFICE = "office"
+    SKYPE = "skype"
+    DISCORD = "discord"
 
 
 class Event:
@@ -21,7 +30,7 @@ class Event:
         self.event_type = EventType(event_type)
         self.name = name
         self.attendees = attendees
-        self.location = location
+        self.location = EventLocation(location)
 
     def to_dict(self):
         return {
@@ -29,7 +38,7 @@ class Event:
             "event_type": self.event_type.value,
             "name": self.name,
             "attendees": self.attendees,
-            "location": self.location,
+            "location": self.location.value,
         }
 
     @classmethod
@@ -44,28 +53,22 @@ class Event:
 
 
 class EventFactory:
-    LOCATIONS = ["zoom", "telegram", "office", "skype", "discord"]
+    @classmethod
+    def random_string(cls, max_length=20):
+        return "".join(random.choices(string.ascii_letters + string.digits, k=max_length))
 
     @classmethod
-    def random_string(cls, max_length):
-        length = random.randint(1, max_length)
-        return "".join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-
-    @classmethod
-    def generate_event(cls, date_from, date_to):
-        datetime_utc = datetime.datetime.combine(
-            random.choice([date for date in cls.date_range(date_from, date_to)]),
-            datetime.time(random.randint(0, 23), random.randint(0, 59)),
-        )
-        event_type = random.choice(list(EventType)).value
-        name = " ".join(cls.random_string(20) for _ in range(random.randint(1, 5)))
+    def generate_event(cls, date_from, date_to, event_type=None):
+        delta = date_to - date_from
+        random_days = random.randint(0, delta.days)
+        random_time = datetime.time(random.randint(0, 23), random.randint(0, 59))
+        datetime_utc = datetime.datetime.combine(date_from + datetime.timedelta(days=random_days), random_time)
+        event_type = event_type or random.choice(list(EventType)).value
+        name = cls.random_string()
         attendees = random.sample(Event.NAMES, random.randint(1, len(Event.NAMES)))
-        location = random.choice(cls.LOCATIONS)
-        return Event(datetime_utc, event_type, name, attendees, location)
+        location = random.choice(list(EventLocation)).value
 
-    @staticmethod
-    def date_range(date_from, date_to):
-        return [date_from + datetime.timedelta(days=x) for x in range(0, (date_to - date_from).days + 1)]
+        return Event(datetime_utc, event_type, name, attendees, location)
 
 
 class EventProcessor:
@@ -84,16 +87,16 @@ class EventProcessor:
         return [Event.from_dict(item) for item in data]
 
     def group_events(self, events):
-        grouped = {}
+        grouped = defaultdict(list)
         for event in events:
             if event.event_type != EventType.OTHER:
                 date = event.datetime_utc.date().isoformat()
-                if date not in grouped:
-                    grouped[date] = []
                 grouped[date].append(event.to_dict())
-        for date, events_for_date in grouped.items():
-            grouped[date] = sorted(events_for_date, key=lambda x: x["datetime_utc"])
-        return grouped
+
+        for date in grouped:
+            grouped[date].sort(key=lambda x: x["datetime_utc"])
+
+        return dict(grouped)
 
     def save_grouped_events(self, grouped_events):
         with open(self.output_file, "w") as f:
