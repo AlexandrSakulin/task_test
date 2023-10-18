@@ -3,7 +3,7 @@ import json
 import allure
 import pytest
 
-from task_test.task_2.pages.advanced_search_pages import AdvancedSearchPage
+from task_2.pages.advanced_search_pages import AdvancedSearchPage
 
 # Загрузка параметров поиска из JSON-файла
 with open("search_params.json", "r", encoding="utf-8") as file:

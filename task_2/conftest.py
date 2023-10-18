@@ -1,7 +1,7 @@
 import pytest
 from selenium import webdriver
 
-from task_test.task_2.configurations import BROWSER, MAIN_URL, SCREEN_RESOLUTION
+from task_2.configurations import BROWSER, MAIN_URL, SCREEN_RESOLUTION
 
 
 def get_firefox():

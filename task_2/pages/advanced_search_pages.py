@@ -1,14 +1,14 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 
-from task_test.task_2.pages.base_page import BasePage
+from task_2.pages.base_page import BasePage
 
 
 class AdvancedPageLocators:
     SEARCH_INPUT_TITLE = (By.ID, "find_film")
     SEARCH_INPUT_COUNTRY = (By.ID, "country")
     SEARCH_INPUT_GENRE = (By.ID, "m_act[genre]")
-    BUTTON_SEARCH = (By.CSS_SELECTOR, "input[type='button'][value='поиск']")
+    BUTTON_SEARCH = (By.XPATH, "//*[@id='formSearchMain']/input[@type='button' and @value='поиск']")
     MESSAGE_ERROR = (By.LINK_TEXT, "//h2[text()='К сожалению, по вашему запросу ничего не найдено...']")
     ELEMENTS_SEARCH_RESULT = (By.CLASS_NAME, "element")
 
